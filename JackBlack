@@ -1,0 +1,452 @@
+#ifndef CARTA_H
+#define CARTA_H
+
+#include <string>
+
+using namespace std;
+
+class Carta {
+private:
+    string palo;
+    int valor; 
+
+public:
+    Carta();
+    Carta(string p, int v);
+    
+    string getPalo() const;
+    int getValor() const;
+    string mostrar() const;
+    int getPuntajeJuego() const;
+};
+
+#endif
+
+#include "Carta.h"
+
+using namespace std;
+
+Carta::Carta() {
+    palo = "";
+    valor = 1;
+}
+
+Carta::Carta(string p, int v) {
+    palo = p;
+    if (v >= 1 && v <= 13) {
+        valor = v;
+    } else {
+        valor = 1; 
+    }
+}
+
+string Carta::getPalo() const { return palo; }
+int Carta::getValor() const { return valor; }
+
+string Carta::mostrar() const {
+    string nombre = "";
+    if (valor == 1) nombre = "As";
+    else if (valor == 11) nombre = "J";
+    else if (valor == 12) nombre = "Q";
+    else if (valor == 13) nombre = "K";
+    else nombre = to_string(valor);
+
+    return nombre + " de " + palo;
+}
+
+int Carta::getPuntajeJuego() const {
+    if (valor == 1) return 11; 
+    if (valor > 10) return 10; 
+    return valor;              
+}
+
+#ifndef MAZO_H
+#define MAZO_H
+
+#include "Carta.h"
+#include <string>
+
+using namespace std;
+
+class Mazo {
+private:
+    Carta cartas[52]; 
+    int tope;
+
+public:
+    Mazo();
+    void inicializar(string palosPersonalizados[4]);
+    void barajar();
+    Carta repartirCarta(string palosPersonalizados[4]);
+    int getCartasRestantes() const;
+};
+
+#endif
+
+#include "Mazo.h"
+#include <cstdlib>
+#include <ctime>
+
+using namespace std;
+
+Mazo::Mazo() {
+    tope = 52;
+}
+
+void Mazo::inicializar(string palosPersonalizados[4]) {
+    int index = 0;
+    for (int i = 0; i < 4; i++) {
+        for (int v = 1; v <= 13; v++) {
+            cartas[index] = Carta(palosPersonalizados[i], v);
+            index++;
+        }
+    }
+    tope = 52;
+}
+
+void Mazo::barajar() {
+    for (int i = 0; i < 52; i++) {
+        int j = rand() % 52;
+        Carta temp = cartas[i];
+        cartas[i] = cartas[j];
+        cartas[j] = temp;
+    }
+}
+
+Carta Mazo::repartirCarta(string palosPersonalizados[4]) {
+    if (tope > 0) {
+        tope--;
+        return cartas[tope];
+    }
+    inicializar(palosPersonalizados);
+    barajar();
+    tope--;
+    return cartas[tope];
+}
+
+int Mazo::getCartasRestantes() const {
+    return tope;
+}
+
+#ifndef JUGADOR_H
+#define JUGADOR_H
+
+#include "Carta.h"
+#include <string>
+
+using namespace std;
+
+class Jugador {
+private:
+    string nombre;
+    int puntaje;
+    int fichas;
+    int cantidadAses;
+    int puntajeObjetivo;
+
+public:
+    Jugador(string nom, int fichasIniciales, int objetivo);
+
+    string getNombre() const;
+    int getFichas() const;
+    void setFichas(int f);
+
+    void recibirCarta(Carta c);
+    void limpiarMano();
+    int calcularPuntaje() const;
+    
+    bool estaPasado() const;
+    bool tieneObjetivo() const;
+};
+
+#endif
+
+#include "Jugador.h"
+
+using namespace std;
+
+Jugador::Jugador(string nom, int fichasIniciales, int objetivo) {
+    nombre = nom;
+    fichas = fichasIniciales;
+    puntaje = 0;
+    cantidadAses = 0;
+    puntajeObjetivo = objetivo;
+}
+
+string Jugador::getNombre() const { return nombre; }
+int Jugador::getFichas() const { return fichas; }
+void Jugador::setFichas(int f) { fichas = f; }
+
+void Jugador::recibirCarta(Carta c) {
+    puntaje += c.getPuntajeJuego();
+    if (c.getValor() == 1) {
+        cantidadAses++;
+    }
+}
+
+void Jugador::limpiarMano() {
+    puntaje = 0;
+    cantidadAses = 0;
+}
+
+int Jugador::calcularPuntaje() const {
+    int sumaTemporal = puntaje;
+    int asesTemporales = cantidadAses;
+
+    while (sumaTemporal > puntajeObjetivo && asesTemporales > 0) {
+        sumaTemporal -= 10;
+        asesTemporales--;
+    }
+
+    return sumaTemporal;
+}
+
+bool Jugador::estaPasado() const {
+    return calcularPuntaje() > puntajeObjetivo;
+}
+
+bool Jugador::tieneObjetivo() const {
+    return calcularPuntaje() == puntajeObjetivo;
+}
+
+#ifndef JUEGO_H
+#define JUEGO_H
+
+#include "Jugador.h"
+#include "Mazo.h"
+#include <string>
+
+using namespace std;
+
+class Juego {
+private:
+    Jugador jugador;
+    Mazo mazo;
+    int puntajeObjetivoConfig;
+    string palosConfig[4];
+
+    void leerConfiguracion();
+    void guardarEstadoPartida(int puntajeFinal, string resultado);
+    void cargarUltimaPartida();
+
+public:
+    Juego(string nombreJugador);
+    void iniciar();
+};
+
+#endif
+
+#include "Juego.h"
+#include "Carta.h"
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <cstdlib>
+
+using namespace std;
+
+Juego::Juego(string nombreJugador) : jugador(nombreJugador, 100, 21) {
+    leerConfiguracion();
+    jugador = Jugador(nombreJugador, 100, puntajeObjetivoConfig);
+    mazo.inicializar(palosConfig);
+    mazo.barajar();
+}
+
+void Juego::leerConfiguracion() {
+    ifstream archivoConfig("config.txt");
+    if (archivoConfig.is_open()) {
+        string lineaObjetivo, lineaPalos;
+        
+        if (getline(archivoConfig, lineaObjetivo)) {
+            puntajeObjetivoConfig = stoi(lineaObjetivo);
+        } else {
+            puntajeObjetivoConfig = 21; 
+        }
+
+        if (getline(archivoConfig, lineaPalos)) {
+            stringstream ss(lineaPalos);
+            string paloTemp;
+            int i = 0;
+            while (getline(ss, paloTemp, ',') && i < 4) {
+                palosConfig[i] = paloTemp;
+                i++;
+            }
+        } else {
+            palosConfig[0] = "Diamantes";
+            palosConfig[1] = "Corazones";
+            palosConfig[2] = "Treboles";
+            palosConfig[3] = "Picas";
+        }
+        archivoConfig.close();
+        cout << "[Configuracion cargada con exito desde 'config.txt']\n";
+        cout << "-> Puntaje objetivo para ganar: " << puntajeObjetivoConfig << "\n";
+        cout << "-> Palos activos: " << palosConfig[0] << ", " << palosConfig[1] << ", " << palosConfig[2] << ", " << palosConfig[3] << "\n\n";
+    } else {
+        puntajeObjetivoConfig = 21;
+        palosConfig[0] = "Diamantes";
+        palosConfig[1] = "Corazones";
+        palosConfig[2] = "Treboles";
+        palosConfig[3] = "Picas";
+        cout << "[Aviso: No se encontro 'config.txt', usando valores predeterminados]\n\n";
+    }
+}
+
+void Juego::guardarEstadoPartida(int puntajeFinal, string resultado) {
+    ofstream archivo("estado_juego.txt", ios::app);
+    if (archivo.is_open()) {
+        archivo << "--- Registro de Partida (Objetivo: " << puntajeObjetivoConfig << ") ---\n";
+        archivo << "Jugador: " << jugador.getNombre() << "\n";
+        archivo << "Fichas actuales: " << jugador.getFichas() << "\n";
+        archivo << "Puntaje final: " << puntajeFinal << "\n";
+        archivo << "Resultado: " << resultado << "\n";
+        archivo << "-------------------------------------------\n\n";
+        archivo.close();
+        cout << "\n[Sistema: Estado guardado en 'estado_juego.txt']\n";
+    }
+}
+
+void Juego::cargarUltimaPartida() {
+    ifstream archivo("estado_juego.txt");
+    if (archivo.is_open()) {
+        string linea;
+        cout << "\n==================================================\n";
+        cout << "      HISTORIAL DE JUEGOS RECUPERADOS (ARCHIVO)   \n";
+        cout << "==================================================\n";
+        while (getline(archivo, linea)) {
+            cout << linea << "\n";
+        }
+        cout << "==================================================\n";
+        archivo.close();
+    } else {
+        cout << "\n[Aviso: No se encontro ningun archivo de historial previo]\n";
+    }
+}
+
+void Juego::iniciar() {
+    char opcionCargar;
+    cout << "¿Deseas ver el historial de juegos anteriores? (s/n): ";
+    cin >> opcionCargar;
+    if (opcionCargar == 's' || opcionCargar == 'S') {
+        cargarUltimaPartida();
+    }
+
+    char jugarNuevamente = 's';
+
+    while (jugarNuevamente == 's' || jugarNuevamente == 'S') {
+        if (jugador.getFichas() <= 0) {
+            cout << "\n¡Te has quedado sin fichas! Game Over.\n";
+            break;
+        }
+
+        int apuesta;
+        cout << "\nTienes " << jugador.getFichas() << " fichas. ¿Cuánto deseas apostar?: ";
+        cin >> apuesta;
+
+        if (apuesta <= 0 || apuesta > jugador.getFichas()) {
+            cout << "Apuesta inválida. Intenta de nuevo.\n";
+            continue;
+        }
+
+        jugador.limpiarMano();
+        mazo.barajar();
+
+        cout << "\n--- Repartiendo cartas iniciales ---\n";
+        Carta c1 = mazo.repartirCarta(palosConfig);
+        jugador.recibirCarta(c1);
+        cout << "-> Te toco: " << c1.mostrar() << "\n";
+
+        Carta c2 = mazo.repartirCarta(palosConfig);
+        jugador.recibirCarta(c2);
+        cout << "-> Te toco: " << c2.mostrar() << "\n";
+
+        char decision = 's';
+        bool enTurno = true;
+
+        while (enTurno) {
+            cout << "\nPuntaje total actual: " << jugador.calcularPuntaje() << " (Objetivo: " << puntajeObjetivoConfig << ")\n";
+            cout << "Cartas restantes en el mazo: " << mazo.getCartasRestantes() << " / 52\n";
+
+            if (jugador.tieneObjetivo()) {
+                cout << "¡EXCELENTE! ¡Llegaste exactamente al puntaje objetivo!\n";
+                break;
+            }
+
+            if (jugador.estaPasado()) {
+                cout << "¡Te has pasado del puntaje objetivo! Has perdido.\n";
+                break;
+            }
+
+            cout << "Deseas pedir carta? [s = Si / n = Plantarse]: ";
+            cin >> decision;
+
+            if (decision == 's' || decision == 'S') {
+                Carta nueva = mazo.repartirCarta(palosConfig);
+                cout << "-> Te toco: " << nueva.mostrar() << "\n";
+                jugador.recibirCarta(nueva);
+            } else {
+                enTurno = false;
+            }
+        }
+
+        string resultadoRonda = "";
+        int puntajeJugador = jugador.calcularPuntaje();
+
+        if (jugador.estaPasado()) {
+            resultadoRonda = "Gana la mesa (Jugador se paso)";
+            cout << "\nResultado: " << resultadoRonda << "\n";
+            jugador.setFichas(jugador.getFichas() - apuesta);
+        } else {
+            int puntajeCasa = (puntajeObjetivoConfig - 4) + (rand() % 6); 
+            cout << "\nPuntaje de la Mesa/Casa: " << puntajeCasa << "\n";
+
+            if (puntajeCasa > puntajeObjetivoConfig || puntajeJugador > puntajeCasa) {
+                resultadoRonda = "Gana el jugador"; 
+                cout << "Resultado: ¡" << resultadoRonda << "!\n";
+                jugador.setFichas(jugador.getFichas() + apuesta);
+            } else if (puntajeJugador == puntajeCasa) {
+                resultadoRonda = "Empate"; 
+                cout << "Resultado: ¡" << resultadoRonda << "! Recuperas tus fichas.\n";
+            } else {
+                resultadoRonda = "Gana la mesa"; 
+                cout << "Resultado: " << resultadoRonda << ". Pierdes la apuesta.\n";
+                jugador.setFichas(jugador.getFichas() - apuesta);
+            }
+        }
+
+        guardarEstadoPartida(puntajeJugador, resultadoRonda);
+
+        cout << "\n¿Deseas jugar otra ronda? (s/n): ";
+        cin >> jugarNuevamente;
+    }
+
+    cout << "\n¡Gracias por jugar! Vuelve pronto.\n";
+}
+
+#include <iostream>
+#include <string>
+#include <cstdlib>
+#include <ctime>
+#include "Juego.h"
+
+using namespace std;
+
+int main() {
+    srand(time(0));
+
+    cout << "==================================================\n";
+    cout << "   SIMULACION JUEGO MODULAR (CONFIGURABLE)        \n";
+    cout << "==================================================\n\n";
+
+    string nombreJugador;
+    cout << "Ingresa tu nombre: ";
+    cin >> nombreJugador;
+
+    Juego miJuego(nombreJugador);
+    miJuego.iniciar();
+
+    return 0;
+}
+
+10. config.txt (Archivo de configuración opcional)
+34
+gato,perro,flor,abeja
